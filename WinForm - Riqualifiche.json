@@ -1,0 +1,439 @@
+{
+  "name": "WinForm - Riqualifiche",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "WinForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Codice Corso",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "File foglio presenze",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        16,
+        -128
+      ],
+      "id": "33be5c47-4f08-4c02-9831-83db1baf93b9",
+      "name": "On form submission",
+      "webhookId": "349aa24f-382d-4e6b-92d7-96651f5e0af8"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        -128
+      ],
+      "id": "4f8a95c4-f013-49ff-9715-57b040b2a349",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ilovepdf.com/v1/auth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "public_key",
+              "value": "project_public_a33d575cc6433767d7b4b7cb704d93b3_xZA-qe24c8178714f277647af3528e06bbf51"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        -208
+      ],
+      "id": "1513236a-07e7-4993-9fa1-81730e1f043b",
+      "name": "Authentication"
+    },
+    {
+      "parameters": {
+        "url": "https://api.ilovepdf.com/v1/start/imagepdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        -208
+      ],
+      "id": "f9f8a8c3-c033-4bc6-a387-d7ad7b9d70c5",
+      "name": "Start"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $json.server }}/v1/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Authentication\"].json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "={{ $json.task }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "={{ Object.keys($binary)[0] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        -320
+      ],
+      "id": "6a2f3dbe-99ab-4753-9d26-afddc2547a0d",
+      "name": "Upload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Start').item.json.server }}/v1/process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Authentication').item.json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "={{ $('Start').item.json.task }}"
+            },
+            {
+              "name": "tool",
+              "value": "imagepdf"
+            },
+            {
+              "name": "merge_after",
+              "value": "true"
+            },
+            {
+              "name": "files",
+              "value": "={{ $json.files_list.map(f => ({ \"server_filename\": f.server_filename, \"filename\": \"doc.jpg\" })) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1792,
+        -128
+      ],
+      "id": "63f54685-fe31-48e0-832a-d1eec7cdeb89",
+      "name": "Process"
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $node[\"Start\"].json.server }}/v1/download/{{ $node[\"Start\"].json.task }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Authentication').item.json.token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2016,
+        -128
+      ],
+      "id": "c65198e9-fff1-4e05-86b8-5763a54729f3",
+      "name": "Download"
+    },
+    {
+      "parameters": {
+        "sendTo": "a.vietri92@gmail.com",
+        "subject": "={{ $('On form submission').item.json['Codice Corso']}} {{ $now.format('dd/MM/yyyy') }}",
+        "emailType": "text",
+        "message": "=NOME CORSO: \nCODICE CORSO:{{ $('On form submission').item.json['Codice Corso'] }}\nFASCIA ORARIA: {{DateTime.utc({locale:\"it\"}).format('HH').toNumber()+1}}:00",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        -128
+      ],
+      "id": "4bcfd4aa-9ecb-42a1-86a6-ceb443d2a8be",
+      "name": "Send a message",
+      "webhookId": "379c1c39-71e3-4349-b768-72f28e13d22e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pQRSnaBxJ9sGDvH0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $json.server }}/v1/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Authentication\"].json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "={{ $json.task }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "={{ Object.keys($binary)[1] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        -128
+      ],
+      "id": "25d3fa3a-75d3-4763-a8ac-c7d7fcded1c6",
+      "name": "Upload1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1344,
+        -144
+      ],
+      "id": "3ac34d4d-b28b-4325-bd06-844d6c66a57f",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "=files_list",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        -128
+      ],
+      "id": "9ce84970-5053-401f-b183-7e3d9641ced5",
+      "name": "Aggregate"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Authentication",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Upload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authentication": {
+      "main": [
+        [
+          {
+            "node": "Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process": {
+      "main": [
+        [
+          {
+            "node": "Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e0a5e137-695d-489c-ac91-875c18166aa3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "289ce8bc246cb99c886ce1956546de1df3f7e906a39ef41109acb0a389d848bb"
+  },
+  "id": "KX0woFmcaiDm3HXL",
+  "tags": []
+}
