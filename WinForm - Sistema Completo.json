@@ -1,0 +1,418 @@
+{
+  "name": "WinForm - Sistema Completo",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "WinForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Nome corso",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Codice Corso",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "File foglio presenze",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -128,
+        -368
+      ],
+      "id": "4a016536-257e-432f-a08c-ffb99c817b70",
+      "name": "On form submission",
+      "webhookId": "4757e75f-709a-40cc-83e6-3234c042c23c"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ilovepdf.com/v1/auth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "public_key",
+              "value": "project_public_a33d575cc6433767d7b4b7cb704d93b3_xZA-qe24c8178714f277647af3528e06bbf51"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        96,
+        -368
+      ],
+      "id": "310fcfc7-c16b-4fd1-a7ae-0187c99433bb",
+      "name": "Authentication"
+    },
+    {
+      "parameters": {
+        "url": "https://api.ilovepdf.com/v1/start/imagepdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        320,
+        -368
+      ],
+      "id": "36f7fbd8-6190-40c3-8ef8-55ae3ed68c52",
+      "name": "Start"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $json.server }}/v1/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Authentication\"].json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "={{ $json.task }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        -320
+      ],
+      "id": "ef76ef2a-4e67-47b8-8454-bedccb0e2792",
+      "name": "Upload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Start').item.json.server }}/v1/process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Authentication').item.json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "={{ $('Start').item.json.task }}"
+            },
+            {
+              "name": "tool",
+              "value": "imagepdf"
+            },
+            {
+              "name": "merge_after",
+              "value": "true"
+            },
+            {
+              "name": "files",
+              "value": "={{ $json.files_list.map(f => ({ \"server_filename\": f.server_filename, \"filename\": \"doc.jpg\" })) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1216,
+        -512
+      ],
+      "id": "9400bedc-84a7-4ba8-a008-21577e7d027a",
+      "name": "Process"
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $node[\"Start\"].json.server }}/v1/download/{{ $node[\"Start\"].json.task }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Authentication').item.json.token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1440,
+        -512
+      ],
+      "id": "138ab481-4fa4-45d7-b7ed-45c9ba4b6cdc",
+      "name": "Download"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "=files_list",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        992,
+        -512
+      ],
+      "id": "d0ebfb23-3985-4996-8373-ea87b549cc49",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "const formItem = $('On form submission').first();\nconst startData = $input.first().json;\nconst binaryKeys = Object.keys(formItem.binary || {});\n\nreturn binaryKeys.map((key, i) => ({\n  json: {\n    server: startData.server,\n    task: startData.task,\n    token: $('Authentication').first().json.token,\n    binaryKey: key,\n    index: i\n  },\n  binary: { data: formItem.binary[key] }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -368
+      ],
+      "id": "afda3e14-b5d0-468a-ae31-aff2cf59ae0d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        768,
+        -368
+      ],
+      "id": "b346b41a-37a5-4af8-89bd-574a161e4328",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM utenti WHERE email = '{{ $json.Email }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1296,
+        -688
+      ],
+      "id": "da801c95-d4f6-4b2a-99d6-2a3cb7e9c012",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "agW8mrFjexQjUVSz",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1664,
+        -512
+      ],
+      "id": "c10aa52b-a498-42c6-bc7a-bb162edb2972",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Authentication",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authentication": {
+      "main": [
+        [
+          {
+            "node": "Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process": {
+      "main": [
+        [
+          {
+            "node": "Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        []
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "4a75e26b-9631-4456-8cd4-473934065645",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "289ce8bc246cb99c886ce1956546de1df3f7e906a39ef41109acb0a389d848bb"
+  },
+  "id": "0HgzdYELCbtgepkn",
+  "tags": []
+}

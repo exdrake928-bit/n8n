@@ -1,0 +1,295 @@
+{
+  "name": "Registrazione su sistema",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Credenziali",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Nome",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "gmail password",
+              "fieldType": "password",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        304
+      ],
+      "id": "cafa9227-996d-41a7-9c1a-fdf74963b00f",
+      "name": "On form submission",
+      "webhookId": "b9589193-340f-4a96-a082-01d2c4fc48d0"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "utenti",
+          "mode": "list",
+          "cachedResultName": "utenti"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nome": "={{ $('On form submission').item.json.Nome }}",
+            "email": "={{ $('On form submission').item.json.email }}",
+            "gmail_password": "={{ $('On form submission').item.json['gmail password'] }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nome",
+              "displayName": "nome",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_password",
+              "displayName": "gmail_password",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        672,
+        400
+      ],
+      "id": "04193758-6d5e-4c85-9533-a34316d3262a",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "agW8mrFjexQjUVSz",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d0c33430-81c9-4338-a178-417a07891e1e",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        304
+      ],
+      "id": "9b1cbf94-4d91-462a-8655-7dedbe3191fd",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) as count FROM utenti WHERE email = '{{ $json.email }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        304
+      ],
+      "id": "48cc844e-36ab-4bd2-83bf-1041f30c4392",
+      "name": "Execute a SQL query",
+      "alwaysOutputData": false,
+      "credentials": {
+        "postgres": {
+          "id": "agW8mrFjexQjUVSz",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('On form submission').item.json.email }}",
+        "subject": "Registrazione completata",
+        "message": "=Ciao {{ $('On form submission').item.json.Nome }},  sei già registrato al servizio. \nSe hai dimenticato la password contattaci",
+        "options": {
+          "senderName": "no-reply"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        208
+      ],
+      "id": "0a74fb48-30e8-4eb5-a5c4-3b2cb62c726e",
+      "name": "Registrato",
+      "webhookId": "d8b6c8ee-0d53-41c1-b868-9d81bbd9ad18",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pQRSnaBxJ9sGDvH0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Registrazione completata",
+        "message": "=Ciao {{ $json.nome }},  La tua registrazione è avvenuta con successo!  Puoi accedere al form qui: [incolla qui il link del form principale]  Grazie",
+        "options": {
+          "senderName": "no-reply"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        400
+      ],
+      "id": "3566fda0-6e13-4fc9-b022-c308bf0de8d2",
+      "name": "Iscrizione",
+      "webhookId": "d8b6c8ee-0d53-41c1-b868-9d81bbd9ad18",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pQRSnaBxJ9sGDvH0",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Iscrizione",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Registrato",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0203cd84-389b-4dd5-8ce9-561742ca7482",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "289ce8bc246cb99c886ce1956546de1df3f7e906a39ef41109acb0a389d848bb"
+  },
+  "id": "GS2cXZRk1kDihOT5",
+  "tags": []
+}
