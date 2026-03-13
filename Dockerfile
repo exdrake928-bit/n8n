@@ -1,8 +1,10 @@
-FROM n8nio/n8n:latest
-
-USER root
+FROM node:20-alpine
 
 RUN apk add --no-cache python3 py3-pip py3-pillow && \
-    pip3 install img2pdf --break-system-packages --no-deps
+    pip3 install img2pdf --break-system-packages
 
-USER node
+RUN npm install -g n8n
+
+EXPOSE 5678
+
+CMD ["n8n", "start"]
