@@ -1,0 +1,318 @@
+{
+  "name": "Only pdf Send",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "WinForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Codice Corso",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "File foglio presenze",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        16,
+        -160
+      ],
+      "id": "e71c9568-890e-4f56-808f-d525d05befeb",
+      "name": "On form submission",
+      "webhookId": "e7c1feae-829d-499b-a39b-89a7672258b8"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        -176
+      ],
+      "id": "64b5bf01-47f0-4ba1-b858-0f2d059582e5",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ilovepdf.com/v1/auth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "public_key",
+              "value": "project_public_a33d575cc6433767d7b4b7cb704d93b3_xZA-qe24c8178714f277647af3528e06bbf51"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        -240
+      ],
+      "id": "68cc47d4-caa5-4f18-95d5-984e0b0eae2b",
+      "name": "Authentication"
+    },
+    {
+      "parameters": {
+        "url": "https://api.ilovepdf.com/v1/start/imagepdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        -240
+      ],
+      "id": "fcdba8de-0217-48f3-8d88-6903cdb7ff6f",
+      "name": "Start"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $json.server }}/v1/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node[\"Authentication\"].json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "={{ $json.task }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "={{ 'File_foglio_presenze_0' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        912,
+        -176
+      ],
+      "id": "7179b28d-c439-4740-9bfd-4052c690eaa5",
+      "name": "Upload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Start').item.json.server }}/v1/process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Authentication').item.json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"task\": \"{{ $('Start').item.json.task }}\",\n  \"tool\": \"imagepdf\",\n  \"files\": [\n    {\n      \"server_filename\": \"{{ $json.server_filename }}\",\n      \"filename\": \"foglio_presenze_unito.pdf\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1136,
+        -176
+      ],
+      "id": "6d7d9c8b-4f23-4bf7-9b5c-496e2f8f6111",
+      "name": "Process"
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $node[\"Start\"].json.server }}/v1/download/{{ $node[\"Start\"].json.task }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Authentication').item.json.token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1360,
+        -176
+      ],
+      "id": "32a17dab-0d95-43e0-b5d1-8d1505cf1b9e",
+      "name": "Download"
+    },
+    {
+      "parameters": {
+        "sendTo": "a.vietri92@gmail.com",
+        "subject": "={{ $('On form submission').item.json['Codice Corso']}} {{ $now.format('dd/MM/yyyy') }}",
+        "emailType": "text",
+        "message": "=NOME CORSO: \nCODICE CORSO:{{ $('On form submission').item.json['Codice Corso'] }}\nFASCIA ORARIA: {{DateTime.utc({locale:\"it\"}).format('HH').toNumber()+1}}:00",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        -176
+      ],
+      "id": "a638a6b2-0c8d-45b9-a6f4-afe0d4dbadba",
+      "name": "Send a message",
+      "webhookId": "4b1cd278-606e-4817-b211-27068f782c7d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pQRSnaBxJ9sGDvH0",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Authentication",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authentication": {
+      "main": [
+        [
+          {
+            "node": "Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload": {
+      "main": [
+        [
+          {
+            "node": "Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process": {
+      "main": [
+        [
+          {
+            "node": "Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "50208833-bbb6-4caf-9dbb-bcc7235a877d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "289ce8bc246cb99c886ce1956546de1df3f7e906a39ef41109acb0a389d848bb"
+  },
+  "id": "6o1isOU331t5cOYR",
+  "tags": []
+}
